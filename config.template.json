@@ -1,0 +1,11 @@
+{
+  "defaults": {
+    "output": "default"
+  },
+  "connections": {
+    "local": {
+      "url": "postgres://localhost:5432/ccapi",
+      "flags": ["read", "write", "confirm"]
+    }
+  }
+}
