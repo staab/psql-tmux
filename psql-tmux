@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-cd $(dirname "${BASH_SOURCE[0]}")
-
-exec ./swap_pane.sh python3 ./execute_query.py --query "$@"

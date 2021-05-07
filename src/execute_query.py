@@ -112,8 +112,7 @@ def get_opts(args):
 def print_output(data, interactive):
     if interactive:
         fh = mktmp(data)
-        run(['python3', './interact.py', fh.name],
-            stdin=sys.stdin)
+        run(['cateract', fh.name], stdin=sys.stdin)
     else:
         print("Results:\n")
         print(data)
