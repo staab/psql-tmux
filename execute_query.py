@@ -1,33 +1,11 @@
 import argparse, sys, json, time, os, csv
 from subprocess import run, PIPE
 from tempfile import NamedTemporaryFile
-from pynput.keyboard import Key, Listener
+
 
 def die(message):
     print(message)
     sys.exit(1)
-
-
-def watch_input(cb):
-    s = ''
-
-    def press(key):
-        nonlocal s
-
-        if key == Key.esc:
-            return False
-
-        if key == Key.backspace:
-            s = s[:-1]
-        elif key == Key.space:
-            s += ' '
-        elif hasattr(key, 'char'):
-            s += key.char
-
-        cb(s)
-
-    with Listener(on_press=press) as listener:
-        listener.join()
 
 
 def mktmp(contents, suffix):
@@ -47,14 +25,6 @@ def pipe_to_csv(command):
     return mktmp(p.stdout, suffix='.csv')
 
 
-def pipe_to_jq(fh, expr):
-    cat_stream = run(['cat', fh.name], stdout=PIPE)
-    jq_stream = run(['jq', '-SC', expr],
-                    capture_output=True,
-                    input=cat_stream.stdout)
-
-    return jq_stream
-
 try:
     with open('config.json', 'r') as f:
         config = json.loads(f.read())
@@ -71,7 +41,7 @@ parser.add_argument('--query',
 parser.add_argument('--output',
                     help="Output mode",
                     default=defaults.get('output', 'default'),
-                    choices=["libreoffice", "default", "jq"])
+                    choices=["libreoffice", "default", "jq", "json"])
 
 args = parser.parse_args()
 
@@ -111,39 +81,21 @@ command = ['psql', connection['url'], '-c', query]
 if args.output == 'default':
     print("Results:\n")
     run(command)
-    input("Press any key to close.")
+    input("Press enter to exit.")
+
+if args.output == 'json':
+    csv_fh = pipe_to_csv(command)
+    reader = csv.DictReader(csv_fh)
+    json_data = json.dumps(list(reader))
+    run(['jq', '-SC', '.'], input=json_data.encode('utf-8'))
+    input("\nPress enter to exit.")
 
 if args.output == 'jq':
     csv_fh = pipe_to_csv(command)
     reader = csv.DictReader(csv_fh)
     json_fh = mktmp(json.dumps(list(reader)), '.json')
-    jq_stream = pipe_to_jq(json_fh, '.')
-    out = jq_stream.stdout
-    err = jq_stream.stderr
-
-    def print_jq(expr):
-        os.system('clear')
-
-        print('>', expr)
-        print(out.decode('utf-8'))
-        print(err.decode('utf-8'))
-
-    print_jq('')
-
-    @watch_input
-    def run_jq(expr):
-        global out
-        global err
-
-        s = pipe_to_jq(json_fh, expr)
-
-        err = s.stderr
-
-        if not s.stderr:
-            out = s.stdout
-
-        print_jq(expr)
-
+    run(['python', './jq_interactive.py', json_fh.name],
+        stdin=sys.stdin)
 
 if args.output == 'libreoffice':
     fh = pipe_to_csv(command)
