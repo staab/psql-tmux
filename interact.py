@@ -17,11 +17,10 @@ def w():
     return os.get_terminal_size().columns
 
 
-def process_char(c, ctx):
+def process_char(c, ctx, force_execute=False):
     global output
 
-    #  print(ctx['is_control_char'], ctx['is_arrow_key'], ord(c))
-    #  continue
+    #  print(ctx['is_control_char'], ctx['is_arrow_key'])
 
     if ctx['is_arrow_key']:
         if c == chr(65):
@@ -45,21 +44,28 @@ def process_char(c, ctx):
     else:
         ctx['is_control_char'] = False
 
+    command = ctx['command']
+
     if c == chr(127):
-        ctx['command'] = ctx['command'][:-1]
+        command = command[:-1]
     elif not ctx['is_arrow_key'] and c != "\n":
-        ctx['command'] += c
+        command += c
 
-    command = ctx['command'].split(' ') if ctx['command'] else 'cat'
+    ctx['is_arrow_key'] = False
 
-    try:
-        proc = run(command,
-                   capture_output=True,
-                   input=input.encode('utf-8'))
-        output = proc.stdout or proc.stderr
-        output = output.decode('utf-8').split('\n')
-    except FileNotFoundError:
-       pass
+    # Only run the subcommand if our command has changed
+    # for scrolling performance
+    if force_execute or command != ctx['command']:
+        try:
+            proc = run((command or 'cat').split(' '),
+                       capture_output=True,
+                       input=input.encode('utf-8'))
+            output = proc.stdout or proc.stderr
+            output = output.decode('utf-8').split('\n')
+        except FileNotFoundError:
+           pass
+
+        ctx['command'] = command
 
     os.system('clear')
 
@@ -84,7 +90,7 @@ ctx = {
     'h_offset': 0,
 }
 
-process_char('', ctx)
+process_char('', ctx, force_execute=True)
 
 while True:
     try:
