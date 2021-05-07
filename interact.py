@@ -4,10 +4,10 @@ from subprocess import run
 tty.setcbreak(sys.stdin.fileno())
 
 with open(sys.argv[1]) as f:
-    jq_in = f.read()
-    jq_out = jq_in
+    input = f.read()
+    output = input
 
-max_w = max([len(l) for l in jq_in.split('\n')])
+max_w = max([len(l) for l in input.split('\n')])
 
 def h():
     return os.get_terminal_size().lines
@@ -17,14 +17,8 @@ def w():
     return os.get_terminal_size().columns
 
 
-def pipe_to_jq(expr):
-    return run(['jq', '-S', expr],
-               capture_output=True,
-               input=jq_in.encode('utf-8'))
-
-
 def process_char(c, ctx):
-    global jq_out
+    global output
 
     #  print(ctx['is_control_char'], ctx['is_arrow_key'], ord(c))
     #  continue
@@ -33,7 +27,7 @@ def process_char(c, ctx):
         if c == chr(65):
             ctx['h_offset'] = max(0, ctx['h_offset'] - 3)
         elif c == chr(66):
-            ctx['h_offset'] = max(0, min(len(jq_out) - (h() - 2), ctx['h_offset'] + 3))
+            ctx['h_offset'] = max(0, min(len(output) - (h() - 2), ctx['h_offset'] + 3))
         elif c == chr(68):
             ctx['w_offset'] = max(0, ctx['w_offset'] - 10)
         elif c == chr(67):
@@ -56,15 +50,22 @@ def process_char(c, ctx):
     elif not ctx['is_arrow_key'] and c != "\n":
         ctx['command'] += c
 
-    jq_proc = pipe_to_jq(ctx['command'])
-    jq_out = jq_proc.stdout or jq_proc.stderr
-    jq_out = jq_out.decode('utf-8').split('\n')
+    command = ctx['command'].split(' ') if ctx['command'] else 'cat'
+
+    try:
+        proc = run(command,
+                   capture_output=True,
+                   input=input.encode('utf-8'))
+        output = proc.stdout or proc.stderr
+        output = output.decode('utf-8').split('\n')
+    except FileNotFoundError:
+       pass
 
     os.system('clear')
 
     for i in range(0, h() - 2):
         try:
-            line = jq_out[i + ctx['h_offset']][ctx['w_offset']:w() + ctx['w_offset']]
+            line = output[i + ctx['h_offset']][ctx['w_offset']:w() + ctx['w_offset']]
         except IndexError:
             line = ""
 
@@ -83,7 +84,7 @@ ctx = {
     'h_offset': 0,
 }
 
-process_char('.', ctx)
+process_char('', ctx)
 
 while True:
     try:
