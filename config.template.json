@@ -1,6 +1,6 @@
 {
   "defaults": {
-    "output": "default"
+    "output": "default",
     "connection": "local",
     "interactive": false
   },
