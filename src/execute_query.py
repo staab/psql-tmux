@@ -16,23 +16,24 @@ parser.add_argument('--output',
 
 
 def main(command, output, interactive):
-    if output == 'default':
-        return print_output(get_stdout(command), interactive)
+    if output != 'default':
+        command += ['--csv']
 
-    csv_data = get_stdout(command + ['--csv'])
+    proc = run(command, capture_output=True)
 
-    if output == 'csv':
-        print_output(csv_data, interactive)
-
-    if output == 'json':
-        reader = csv.DictReader(mktmp(csv_data, '.csv'))
+    if proc.stderr:
+        print_output(proc.stderr, interactive)
+    elif output == 'default':
+        print_output(proc.stdout, interactive)
+    elif output == 'csv':
+        print_output(proc.stdout, interactive)
+    elif output == 'json':
+        reader = csv.DictReader(mktmp(proc.stdout, '.csv'))
         json_data = json.dumps(list(reader)).encode('utf-8')
-        json_data = get_stdout(['jq'], input=json_data)
-
-        print_output(json_data, interactive)
-
-    if output == 'libreoffice':
-        fh = mktmp(csv_data, '.csv')
+        json_proc = run(['jq'], input=json_data, capture_output=True)
+        print_output(json_proc.stdout or json_proc.stderr, interactive)
+    elif output == 'libreoffice':
+        fh = mktmp(proc.stdout, '.csv')
         run(['libreoffice', '--nologo', fh.name])
 
 
@@ -42,16 +43,6 @@ def main(command, output, interactive):
 def die(message):
     print(message)
     sys.exit(1)
-
-
-def get_stdout(command, **kw):
-    proc = run(command, capture_output=True, **kw)
-
-    if proc.stderr:
-        print("Query failed!")
-        die(proc.stderr)
-
-    return proc.stdout.decode('utf-8')
 
 
 def mktmp(contents, suffix='.txt'):
@@ -110,6 +101,9 @@ def get_opts(args):
 
 
 def print_output(data, interactive):
+    if type(data) == bytes:
+        data = data.decode('utf-8')
+
     if interactive:
         fh = mktmp(data)
         run(['cateract', fh.name], stdin=sys.stdin)
