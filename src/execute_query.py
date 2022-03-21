@@ -12,7 +12,7 @@ parser.add_argument('--interactive',
                     action='store_true')
 parser.add_argument('--output',
                     help="Output mode",
-                    choices=["default", "libreoffice", "csv", "json"])
+                    choices=["default", "spreadsheet", "csv", "json"])
 
 
 def main(command, output, interactive):
@@ -29,12 +29,13 @@ def main(command, output, interactive):
         print_output(proc.stdout, interactive)
     elif output == 'json':
         reader = csv.DictReader(mktmp(proc.stdout, '.csv'))
-        json_data = json.dumps(list(reader)).encode('utf-8')
+        json_data = json.dumps(list(map(csv_row_to_json, reader))).encode('utf-8')
         json_proc = run(['jq'], input=json_data, capture_output=True)
         print_output(json_proc.stdout or json_proc.stderr, interactive)
-    elif output == 'libreoffice':
-        fh = mktmp(proc.stdout, '.csv')
-        run(['libreoffice', '--nologo', fh.name])
+    elif output == 'spreadsheet':
+        csvfile = mktmp(proc.stdout.decode('utf-8'), '.csv')
+        proc = run(['open', csvfile.name])
+        print_output("Opening spreadsheet...", interactive)
 
 
 # Utilities
@@ -54,6 +55,19 @@ def mktmp(contents, suffix='.txt'):
     f.seek(0)
 
     return f
+
+
+def csv_row_to_json(row):
+    result = {}
+    for k, v in row.items():
+        try:
+            v = json.loads(v)
+        except json.decoder.JSONDecodeError as exc:
+            pass
+
+        result[k] = v
+
+    return result
 
 
 def get_opts(args):
