@@ -43,6 +43,7 @@ def main(command, output, interactive):
 
 def die(message):
     print(message)
+    time.sleep(10000)
     sys.exit(1)
 
 
@@ -72,10 +73,10 @@ def csv_row_to_json(row):
 
 def get_opts(args):
     try:
-        with open('config.json', 'r') as f:
+        with open(os.path.join(os.getcwd(), 'psql-tmux.json'), 'r') as f:
             config = json.loads(f.read())
     except (FileNotFoundError, json.decoder.JSONDecodeError):
-        die("config.json not found or corrupted!")
+        die("psql-tmux.json not found or corrupted!")
 
     defaults = config.get('defaults', {})
     connections = config.get('connections', {})

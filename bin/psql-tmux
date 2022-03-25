@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-cd $(dirname "${BASH_SOURCE[0]}" | xargs dirname)
+dir=$(dirname "${BASH_SOURCE[0]}" | xargs dirname)
 
-exec swap-pane python3 src/execute_query.py "$@"
+exec swap-pane python3 "$dir/src/execute_query.py" "$@"
